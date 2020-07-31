@@ -18,7 +18,8 @@ from pathos.multiprocessing import ProcessingPool as newPool
 import multiprocessing
 
 g_res_set = {}
-
+xff_path = '/home/lxf/data/xff/'
+analysis_path = '/home/lxf/data/analysis_files/'
 
 '''加载数据集'''
 def load_data(file):
@@ -568,60 +569,61 @@ if __name__ == '__main__':
     # handel_dataset('test', 'test')
     # analysis()
 
-    # app_pos = pd.read_csv('./resource/analysis_files/app_positive.csv')
-    # app_neg = pd.read_csv('./resource/analysis_files/app_negative.csv')
-    #
-    # month_p = app_pos.groupby('phone_no_m')['month_id'].nunique().reset_index(name='month_count')
-    # month_n = app_neg.groupby('phone_no_m')['month_id'].nunique().reset_index(name='month_count')
-    # # 流量使用月数为0或1的电话号码
-    # p_phone = month_p[month_p['month_count'] < 2]['phone_no_m'].to_list()
-    # n_phone = month_n[month_n['month_count'] > 2]['phone_no_m'].to_list()
-    # # 流量使用月数为0或1的电话号码的短信使用情况
-    # # sms_pos = pd.read_csv('./resource/analysis_files/sms_positive.csv')
-    # # sms_neg = pd.read_csv('./resource/analysis_files/sms_negative.csv')
-    # # 只用一个月流量或没用流量的电话给多少个不同手机号有过短信来往（发+收）
-    # # sms_nunique_p = sms_pos[sms_pos['phone_no_m'].isin(p_phone)].groupby('phone_no_m')['opposite_no_m'].nunique().reset_index(name='sms_nunique')
-    # # sms_nunique_n = sms_neg[sms_neg['phone_no_m'].isin(n_phone)].groupby('phone_no_m')['opposite_no_m'].nunique().reset_index(name='sms_nunique')
-    # # print(sms_nunique_p[sms_nunique_p['sms_nunique'] > 100].shape[0], 489)  # 55
-    # # print(sms_nunique_n[sms_nunique_n['sms_nunique'] > 100].shape[0], 569)  # 216
-    # # 只用一个月流量或没用流量的电话通话次数
-    # voc_pos = pd.read_csv('./resource/analysis_files/voc_positive.csv')
-    # voc_neg = pd.read_csv('./resource/analysis_files/voc_negative.csv')
-    # voc_nunique_p = voc_pos[voc_pos['phone_no_m'].isin(p_phone)].groupby('phone_no_m')[
-    #     'opposite_no_m'].nunique().reset_index(name='voc_nunique')
-    # voc_nunique_n = voc_neg[voc_neg['phone_no_m'].isin(n_phone)].groupby('phone_no_m')[
-    #     'opposite_no_m'].nunique().reset_index(name='voc_nunique')
-    # p_phone = voc_nunique_p[voc_nunique_p['voc_nunique'] > 100]['phone_no_m'].to_list()
-    # n_phone = voc_nunique_n[voc_nunique_n['voc_nunique'] < 100]['phone_no_m'].to_list()
-    # # print(voc_nunique_p[voc_nunique_p['voc_nunique'] > 100].shape[0], 488)  # 33
-    # # print(voc_nunique_n[voc_nunique_n['voc_nunique'] < 100].shape[0], 568)  # 170
-    # # 只用一个月流量或没用流量的电话 回拨电话数量
-    # id2num, num2id = pickle.load(open('resource/xff/dict_2.pkl', 'rb'))
-    # xff = pickle.load(open('resource/xff/feature_2.pkl', 'rb'))
-    # n_phone_id_list = [num2id[x] for x in n_phone]
-    # p_phone_id_list = [num2id[x] for x in p_phone]
-    # n_recall = recall(n_phone_id_list)
-    # p_recall = recall(p_phone_id_list)
-    # total = len(n_recall)+len(p_recall)
-    # n_ratio = [(n_recall[x][0]/n_recall[x][1])*(n_recall[x][1]/total)*10 for x in n_recall.keys()]
-    # p_ratio = [(p_recall[x][0]/p_recall[x][1])*(p_recall[x][1]/total)*10 for x in p_recall.keys()]
-    # print('negtive  >>>', n_ratio)
-    # print('positive >>>', p_ratio)
-    # n = len([x for x in n_ratio if x > 1])
-    # p = len([x for x in p_ratio if x < 1])
-    # print('negtive  >>>', n, len(n_ratio))
-    # print('positive >>>', p, len(p_ratio))
-    #
-    #
-    # # imei_phone_count_n = voc_neg.groupby('imei_m')['phone_no_m'].nunique().reset_index(name='imei_phone')
-    # # imei_phone_count_p = voc_pos.groupby('imei_m')['phone_no_m'].nunique().reset_index(name='imei_phone')
-    # # print(imei_phone_count_n[imei_phone_count_n['imei_phone'] > 1].shape[0], voc_neg['phone_no_m'].nunique())  # 617/1892
-    # # print(imei_phone_count_p[imei_phone_count_p['imei_phone'] > 1].shape[0], voc_pos['phone_no_m'].nunique())   # 6/4133
-    #
-    # phone_imei_count_n = voc_neg.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
-    # phone_imei_count_p = voc_pos.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
-    # print(phone_imei_count_n[phone_imei_count_n['imei_phone'] > 20].shape[0], voc_neg['phone_no_m'].nunique())
-    # print(phone_imei_count_p[phone_imei_count_p['imei_phone'] > 20].shape[0], voc_pos['phone_no_m'].nunique())
+    app_pos = pd.read_csv(analysis_path + 'app_positive.csv')
+    app_neg = pd.read_csv(analysis_path + 'app_negative.csv')
 
-    train = pd.read_csv('/home/lxf/data/4_voc.csv')
-    get_imei_phone(train)
+    month_p = app_pos.groupby('phone_no_m')['month_id'].nunique().reset_index(name='month_count')
+    month_n = app_neg.groupby('phone_no_m')['month_id'].nunique().reset_index(name='month_count')
+    # 流量使用月数为0或1的电话号码
+    p_phone = month_p[month_p['month_count'] < 2]['phone_no_m'].to_list()
+    n_phone = month_n[month_n['month_count'] > 2]['phone_no_m'].to_list()
+    print('流量使用月数为0或1的')
+    # 流量使用月数为0或1的电话号码的短信使用情况
+    # sms_pos = pd.read_csv(analysis_path + 'sms_positive.csv')
+    # sms_neg = pd.read_csv(analysis_path + 'sms_negative.csv')
+    # 只用一个月流量或没用流量的电话给多少个不同手机号有过短信来往（发+收）
+    # sms_nunique_p = sms_pos[sms_pos['phone_no_m'].isin(p_phone)].groupby('phone_no_m')['opposite_no_m'].nunique().reset_index(name='sms_nunique')
+    # sms_nunique_n = sms_neg[sms_neg['phone_no_m'].isin(n_phone)].groupby('phone_no_m')['opposite_no_m'].nunique().reset_index(name='sms_nunique')
+    # print(sms_nunique_p[sms_nunique_p['sms_nunique'] > 100].shape[0], 489)  # 55
+    # print(sms_nunique_n[sms_nunique_n['sms_nunique'] > 100].shape[0], 569)  # 216
+    # 只用一个月流量或没用流量的电话通话次数
+    voc_pos = pd.read_csv(analysis_path + 'voc_positive.csv')
+    voc_neg = pd.read_csv(analysis_path + 'voc_negative.csv')
+    voc_nunique_p = voc_pos[voc_pos['phone_no_m'].isin(p_phone)].groupby('phone_no_m')[
+        'opposite_no_m'].nunique().reset_index(name='voc_nunique')
+    voc_nunique_n = voc_neg[voc_neg['phone_no_m'].isin(n_phone)].groupby('phone_no_m')[
+        'opposite_no_m'].nunique().reset_index(name='voc_nunique')
+    p_phone = voc_nunique_p[voc_nunique_p['voc_nunique'] > 100]['phone_no_m'].to_list()
+    n_phone = voc_nunique_n[voc_nunique_n['voc_nunique'] < 100]['phone_no_m'].to_list()
+    # print(voc_nunique_p[voc_nunique_p['voc_nunique'] > 100].shape[0], 488)  # 33
+    # print(voc_nunique_n[voc_nunique_n['voc_nunique'] < 100].shape[0], 568)  # 170
+    # 只用一个月流量或没用流量的电话 回拨电话数量
+    id2num, num2id = pickle.load(open(xff_path + 'dict_2.pkl', 'rb'))
+    xff = pickle.load(open(xff_path + 'feature_2.pkl', 'rb'))
+    n_phone_id_list = [num2id[x] for x in n_phone]
+    p_phone_id_list = [num2id[x] for x in p_phone]
+    n_recall = recall(n_phone_id_list)
+    p_recall = recall(p_phone_id_list)
+    total = len(n_recall)+len(p_recall)
+    n_ratio = [(n_recall[x][0]/n_recall[x][1])*(n_recall[x][1]/total)*10 for x in n_recall.keys()]
+    p_ratio = [(p_recall[x][0]/p_recall[x][1])*(p_recall[x][1]/total)*10 for x in p_recall.keys()]
+    print('negtive  >>>', n_ratio)
+    print('positive >>>', p_ratio)
+    n = len([x for x in n_ratio if x > 1])
+    p = len([x for x in p_ratio if x < 1])
+    print('negtive  >>>', n, len(n_ratio))
+    print('positive >>>', p, len(p_ratio))
+
+
+    # imei_phone_count_n = voc_neg.groupby('imei_m')['phone_no_m'].nunique().reset_index(name='imei_phone')
+    # imei_phone_count_p = voc_pos.groupby('imei_m')['phone_no_m'].nunique().reset_index(name='imei_phone')
+    # print(imei_phone_count_n[imei_phone_count_n['imei_phone'] > 1].shape[0], voc_neg['phone_no_m'].nunique())  # 617/1892
+    # print(imei_phone_count_p[imei_phone_count_p['imei_phone'] > 1].shape[0], voc_pos['phone_no_m'].nunique())   # 6/4133
+
+    phone_imei_count_n = voc_neg.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
+    phone_imei_count_p = voc_pos.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
+    print(phone_imei_count_n[phone_imei_count_n['imei_phone'] > 20].shape[0], voc_neg['phone_no_m'].nunique())
+    print(phone_imei_count_p[phone_imei_count_p['imei_phone'] > 20].shape[0], voc_pos['phone_no_m'].nunique())
+
+    # train = pd.read_csv('/home/lxf/data/4_voc.csv')
+    # get_imei_phone(train)
