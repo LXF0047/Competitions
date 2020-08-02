@@ -551,7 +551,7 @@ def get_recall(data_df, type, filename):
 
 def recall(phone_list):
     recal_count = {}
-    for phone in tqdm(phone_list):
+    for phone in phone_list:
         opp = xff.iloc[phone]['out_dict'].keys()  # 号码phone拨出的所有电话list
         phone_in = xff.iloc[phone]['in_dict']  # 号码phone打入的所有号码dict
         re_count = 0
@@ -564,10 +564,19 @@ def recall(phone_list):
     return recal_count
 
 
+def triple_friends(phone_list):
+    t_count = {}
+    # for phone in phone_list:
+
+
+
 if __name__ == '__main__':
     # handel_dataset('test', 'train')
     # handel_dataset('test', 'test')
     # analysis()
+
+    id2num, num2id = pickle.load(open(xff_path + 'new_dict.pkl', 'rb'))
+    xff = pickle.load(open(xff_path + 'new_feature.pkl', 'rb'))
 
     app_pos = pd.read_csv(analysis_path + 'app_positive.csv')
     app_neg = pd.read_csv(analysis_path + 'app_negative.csv')
@@ -576,8 +585,9 @@ if __name__ == '__main__':
     month_n = app_neg.groupby('phone_no_m')['month_id'].nunique().reset_index(name='month_count')
     # 流量使用月数为0或1的电话号码
     p_phone = month_p[month_p['month_count'] < 2]['phone_no_m'].to_list()
-    n_phone = month_n[month_n['month_count'] > 2]['phone_no_m'].to_list()
-    print('流量使用月数为0或1的')
+    n_phone = month_n[month_n['month_count'] < 2]['phone_no_m'].to_list()
+    print('N---流量使用月数为0或1的', len(n_phone), len(app_neg['phone_no_m'].drop_duplicates().tolist()))
+    print('P---流量使用月数为0或1的', len(p_phone), len(app_pos['phone_no_m'].drop_duplicates().tolist()))
     # 流量使用月数为0或1的电话号码的短信使用情况
     # sms_pos = pd.read_csv(analysis_path + 'sms_positive.csv')
     # sms_neg = pd.read_csv(analysis_path + 'sms_negative.csv')
@@ -586,34 +596,37 @@ if __name__ == '__main__':
     # sms_nunique_n = sms_neg[sms_neg['phone_no_m'].isin(n_phone)].groupby('phone_no_m')['opposite_no_m'].nunique().reset_index(name='sms_nunique')
     # print(sms_nunique_p[sms_nunique_p['sms_nunique'] > 100].shape[0], 489)  # 55
     # print(sms_nunique_n[sms_nunique_n['sms_nunique'] > 100].shape[0], 569)  # 216
-    # 只用一个月流量或没用流量的电话通话次数
+    # 只用一个月流量或没用流量的与不同电话通话次数
     voc_pos = pd.read_csv(analysis_path + 'voc_positive.csv')
     voc_neg = pd.read_csv(analysis_path + 'voc_negative.csv')
     voc_nunique_p = voc_pos[voc_pos['phone_no_m'].isin(p_phone)].groupby('phone_no_m')[
         'opposite_no_m'].nunique().reset_index(name='voc_nunique')
     voc_nunique_n = voc_neg[voc_neg['phone_no_m'].isin(n_phone)].groupby('phone_no_m')[
         'opposite_no_m'].nunique().reset_index(name='voc_nunique')
-    p_phone = voc_nunique_p[voc_nunique_p['voc_nunique'] > 100]['phone_no_m'].to_list()
-    n_phone = voc_nunique_n[voc_nunique_n['voc_nunique'] < 100]['phone_no_m'].to_list()
-    # print(voc_nunique_p[voc_nunique_p['voc_nunique'] > 100].shape[0], 488)  # 33
-    # print(voc_nunique_n[voc_nunique_n['voc_nunique'] < 100].shape[0], 568)  # 170
+    p_phone_callcount = voc_nunique_p[voc_nunique_p['voc_nunique'] > 100]['phone_no_m'].to_list()
+    n_phone_callcount = voc_nunique_n[voc_nunique_n['voc_nunique'] < 100]['phone_no_m'].to_list()
+    print('N---拨出不同电话大于100的', voc_nunique_n[voc_nunique_n['voc_nunique'] > 100].shape[0],
+          voc_neg['phone_no_m'].nunique())  # 170
+    print('P---拨出不同电话大于100的', voc_nunique_p[voc_nunique_p['voc_nunique'] > 100].shape[0],
+          voc_pos['phone_no_m'].nunique())  # 33
+    # 没打过电话的
+    p_no_call = voc_nunique_p[voc_nunique_p['voc_nunique'] == 0]['phone_no_m'].to_list()
+    n_no_call = voc_nunique_n[voc_nunique_n['voc_nunique'] == 0]['phone_no_m'].to_list()
+    print('N---没打过电话', len(n_no_call))
+    print('P---没打过电话', len(p_no_call))
     # 只用一个月流量或没用流量的电话 回拨电话数量
-    id2num, num2id = pickle.load(open(xff_path + 'dict_2.pkl', 'rb'))
-    xff = pickle.load(open(xff_path + 'feature_2.pkl', 'rb'))
     n_phone_id_list = [num2id[x] for x in n_phone]
     p_phone_id_list = [num2id[x] for x in p_phone]
     n_recall = recall(n_phone_id_list)
     p_recall = recall(p_phone_id_list)
     total = len(n_recall)+len(p_recall)
-    n_ratio = [(n_recall[x][0]/n_recall[x][1])*(n_recall[x][1]/total)*10 for x in n_recall.keys()]
-    p_ratio = [(p_recall[x][0]/p_recall[x][1])*(p_recall[x][1]/total)*10 for x in p_recall.keys()]
-    print('negtive  >>>', n_ratio)
-    print('positive >>>', p_ratio)
-    n = len([x for x in n_ratio if x > 1])
-    p = len([x for x in p_ratio if x < 1])
-    print('negtive  >>>', n, len(n_ratio))
-    print('positive >>>', p, len(p_ratio))
-
+    # 回拨率
+    n_ratio = [(n_recall[x][0]/n_recall[x][1])*(n_recall[x][1]/total) for x in n_recall.keys() if n_recall[x][1] != 0]
+    p_ratio = [(p_recall[x][0]/p_recall[x][1])*(p_recall[x][1]/total) for x in p_recall.keys() if p_recall[x][1] != 0]
+    n = len([x for x in n_ratio if x != 0])
+    p = len([x for x in p_ratio if x != 0])
+    print('N---回拨率不为0的', n, len(n_ratio))
+    print('P---回拨率不为0的', p, len(p_ratio))
 
     # imei_phone_count_n = voc_neg.groupby('imei_m')['phone_no_m'].nunique().reset_index(name='imei_phone')
     # imei_phone_count_p = voc_pos.groupby('imei_m')['phone_no_m'].nunique().reset_index(name='imei_phone')
@@ -622,8 +635,5 @@ if __name__ == '__main__':
 
     phone_imei_count_n = voc_neg.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
     phone_imei_count_p = voc_pos.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
-    print(phone_imei_count_n[phone_imei_count_n['imei_phone'] > 20].shape[0], voc_neg['phone_no_m'].nunique())
-    print(phone_imei_count_p[phone_imei_count_p['imei_phone'] > 20].shape[0], voc_pos['phone_no_m'].nunique())
-
-    # train = pd.read_csv('/home/lxf/data/4_voc.csv')
-    # get_imei_phone(train)
+    print('N---手机换号次数大于20的', phone_imei_count_n[phone_imei_count_n['imei_phone'] > 10].shape[0], voc_neg['phone_no_m'].nunique())
+    print('P---手机换号次数大于20的', phone_imei_count_p[phone_imei_count_p['imei_phone'] > 10].shape[0], voc_pos['phone_no_m'].nunique())
