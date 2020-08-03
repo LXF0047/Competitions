@@ -551,6 +551,7 @@ def get_recall(data_df, type, filename):
 
 def recall(phone_list):
     recal_count = {}
+    xff = pickle.load(open(xff_path + 'new_feature.pkl', 'rb'))
     for phone in phone_list:
         opp = xff.iloc[phone]['out_dict'].keys()  # 号码phone拨出的所有电话list
         phone_in = xff.iloc[phone]['in_dict']  # 号码phone打入的所有号码dict
@@ -576,7 +577,6 @@ if __name__ == '__main__':
     # analysis()
 
     id2num, num2id = pickle.load(open(xff_path + 'new_dict.pkl', 'rb'))
-    xff = pickle.load(open(xff_path + 'new_feature.pkl', 'rb'))
 
     app_pos = pd.read_csv(analysis_path + 'app_positive.csv')
     app_neg = pd.read_csv(analysis_path + 'app_negative.csv')
