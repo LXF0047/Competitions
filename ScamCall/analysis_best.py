@@ -570,6 +570,21 @@ def triple_friends(phone_list):
     # for phone in phone_list:
 
 
+def after_week_recall(phone_list):
+    recal_count = {}
+    xff = pickle.load(open(xff_path + 'new_feature.pkl', 'rb'))
+    for phone in phone_list:
+        opp = xff.iloc[phone]['out_dict'].keys()  # 号码phone拨出的所有电话list
+        phone_in = xff.iloc[phone]['in_dict']  # 号码phone打入的所有号码dict
+        recall_phones = set()
+        for p_ in opp:
+            if p_ in phone_in:
+                recall_phones.add(p_)
+            else:
+                continue
+        recal_count[phone] = list(recall_phones)
+    return recal_count
+
 
 if __name__ == '__main__':
     # handel_dataset('test', 'train')

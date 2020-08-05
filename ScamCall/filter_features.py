@@ -1,4 +1,4 @@
-from ScamCall.analysis_best import load_data, recall, analysis_path, xff_path
+from ScamCall.analysis_best import load_data, recall, analysis_path, xff_path, after_week_recall
 import pandas as pd
 import pickle
 import prettytable as pt
@@ -112,7 +112,17 @@ def rule_analysis(t):
     both_1 = len(list(set(call_month_1_phone).intersection(set(flow_1))))
     tb.add_row(["通话月份只为1且流量月数也为1", both_1, call_month.shape[0]])
 
+    # 一星期后任然有回拨的电话数
+    recall_phones = after_week_recall(phone_id_list)  # {'phone': [p1, p2, ...]}
+    df_voc['start_month_day'] = pd.to_datetime(df_voc[['month', 'day']])
+    for i in recall_phones:
+        for j in recall_phones[i]:
+            earliest = df_voc[(df_voc['phone_no_m'] == id2num(i)) & (df_voc['opposite_no_m'] == id2num(j))]['start_month_day'].min()
+        print(earliest)
     print(tb)
+
+
+
 
 
 def same_call(df, t):
