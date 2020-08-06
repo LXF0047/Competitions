@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 import math
 from sklearn.metrics import roc_auc_score
 import seaborn as sns
+import threading
 from matplotlib import pyplot as plt
 import numpy as np
 import pickle
@@ -39,7 +40,7 @@ def load_data(file):
     # 语音情况  ['phone_no_m', 'opposite_no_m', 'calltype_id', 'start_datetime',
     #                           'call_dur', 'city_name', 'county_name', 'imei_m']
     elif file == 'train_voc':
-        return pd.read_csv(path + 'train_voc.csv')
+        return pd.read_csv(path + 'train_voc.csv', low_memory=False)
     # 测试
     elif file == 'test_app':
         return pd.read_csv(test_path + 'test_app.csv')
@@ -80,7 +81,7 @@ def handel_user(df):
     # 基本信息处理
     df['arpu_'] = (df['arpu_201908'] + df['arpu_201909'] + df['arpu_201910'] + df['arpu_201911'] +
                    df['arpu_201912'] + df['arpu_202001'] + df['arpu_202002'] + df['arpu_202003']) / 8
-    df['arpu_'].fillna(0)
+    df['arpu_'].fillna(0, inplace=True)
 
     df.drop(['arpu_201908', 'arpu_201909', 'arpu_201910', 'arpu_201911', 'arpu_201912', 'arpu_202001',
               'arpu_202002', 'arpu_202003'], axis=1, inplace=True)
@@ -570,9 +571,17 @@ def triple_friends(phone_list):
     # for phone in phone_list:
 
 
-def after_week_recall(phone_list):
-    recal_count = {}
-    xff = pickle.load(open(xff_path + 'new_feature.pkl', 'rb'))
+def after_week_recall(voc, t):
+    # 时间列转化
+    voc['start_datetime'] = pd.to_datetime(voc['start_datetime'])
+    voc["year"] = voc['start_datetime'].dt.year
+    voc["month"] = voc['start_datetime'].dt.month
+    voc["day"] = voc['start_datetime'].dt.day
+    voc['start_ymd'] = pd.to_datetime(voc[['year', 'month', 'day']])
+    # 电话转换为id
+    phone_list = [num2id[x] for x in voc['phone_no_m'].drop_duplicates().tolist()]
+    # 回拨电话字典
+    recal_count = {}  # {'拨出id': [回拨id1, 回拨id2, 回拨id3 ...]}
     for phone in phone_list:
         opp = xff.iloc[phone]['out_dict'].keys()  # 号码phone拨出的所有电话list
         phone_in = xff.iloc[phone]['in_dict']  # 号码phone打入的所有号码dict
@@ -582,9 +591,55 @@ def after_week_recall(phone_list):
                 recall_phones.add(p_)
             else:
                 continue
-        recal_count[phone] = list(recall_phones)
-    return recal_count
+        recal_count[phone] = list(recall_phones)  # 打回来的电话list
 
+    res = {}
+    outlayer_id = set()  # 字典缺失值
+    for i in tqdm(recal_count.keys()):
+        count = 0
+        if len(recal_count[i]) == 0:
+            continue
+        for j in recal_count[i]:
+            i, j = int(i), int(j)
+            try:
+                # i第一次给j通话的日期
+                earliest = voc[(voc['phone_no_m'] == id2num[i]) & (voc['opposite_no_m'] == id2num[j])][
+                    'start_ymd'].min()
+                #
+                # after_week = voc[(voc['phone_no_m'] == id2num[i]) & (voc['opposite_no_m'] == id2num[j]) &
+                #                     (voc['start_ymd'] > (earliest + pd.Timedelta(days=7)))]['opposite_no_m'].drop_duplicates().shape[0]
+                # 7天后有没有拨回来
+                after_week_recall = voc[(voc['phone_no_m'] == id2num[j]) & (voc['opposite_no_m'] == id2num[i]) &
+                                           (voc['start_ymd'] > (earliest + pd.Timedelta(days=7)))]['opposite_no_m'].drop_duplicates().shape[0]
+                count += after_week_recall
+            except KeyError as e:
+                outlayer_id.add(e)
+        res[id2num[i]] = count
+    print('缺失数量', len(outlayer_id))
+    print([x for x in res.values() if x != 0])
+    pickle.dump(res, open(xff_path + 'after_week_recall_%s.pkl' % t, 'wb'))
+
+
+def after_week_call(voc, t):
+    voc['start_datetime'] = pd.to_datetime(voc['start_datetime'])
+    voc["year"] = voc['start_datetime'].dt.year
+    voc["month"] = voc['start_datetime'].dt.month
+    voc["day"] = voc['start_datetime'].dt.day
+    voc['start_ymd'] = pd.to_datetime(voc[['year', 'month', 'day']])
+    #
+    phone_list = voc['phone_no_m'].drop_duplicates().tolist()
+    res = {}
+    for i in tqdm(phone_list):
+        opp = voc[voc['phone_no_m'] == i]['opposite_no_m'].drop_duplicates().tolist()
+        cnt = 0
+        for j in opp:
+            first = voc[(voc['phone_no_m'] == i) & (voc['opposite_no_m'] == j)]['start_ymd'].min()
+            after_week_call_count = voc[(voc['phone_no_m'] == i) & (voc['opposite_no_m'] == j) &
+                                        (voc['start_ymd'] >= (first + pd.Timedelta(days=7)))].shape[0]
+            cnt += after_week_call_count
+        res[i] = cnt
+    print([x for x in res.values() if x != 0])
+    pickle.dump(res, open(xff_path + 'after_week_call_%s.pkl' % t, 'wb'))
 
 if __name__ == '__main__':
     # handel_dataset('test', 'train')
@@ -592,63 +647,33 @@ if __name__ == '__main__':
     # analysis()
 
     id2num, num2id = pickle.load(open(xff_path + 'new_dict.pkl', 'rb'))
+    xff = pickle.load(open(xff_path + 'new_feature.pkl', 'rb'))
 
-    app_pos = pd.read_csv(analysis_path + 'app_positive.csv')
-    app_neg = pd.read_csv(analysis_path + 'app_negative.csv')
+    train_voc = load_data('train_voc')
+    test_voc = load_data('test_voc')
+    p_voc = pd.read_csv(analysis_path + 'voc_positive.csv')
+    n_voc = pd.read_csv(analysis_path + 'voc_negative.csv')
 
-    month_p = app_pos.groupby('phone_no_m')['month_id'].nunique().reset_index(name='month_count')
-    month_n = app_neg.groupby('phone_no_m')['month_id'].nunique().reset_index(name='month_count')
-    # 流量使用月数为0或1的电话号码
-    p_phone = month_p[month_p['month_count'] < 2]['phone_no_m'].to_list()
-    n_phone = month_n[month_n['month_count'] < 2]['phone_no_m'].to_list()
-    print('N---流量使用月数为0或1的', len(n_phone), len(app_neg['phone_no_m'].drop_duplicates().tolist()))
-    print('P---流量使用月数为0或1的', len(p_phone), len(app_pos['phone_no_m'].drop_duplicates().tolist()))
-    # 流量使用月数为0或1的电话号码的短信使用情况
-    # sms_pos = pd.read_csv(analysis_path + 'sms_positive.csv')
-    # sms_neg = pd.read_csv(analysis_path + 'sms_negative.csv')
-    # 只用一个月流量或没用流量的电话给多少个不同手机号有过短信来往（发+收）
-    # sms_nunique_p = sms_pos[sms_pos['phone_no_m'].isin(p_phone)].groupby('phone_no_m')['opposite_no_m'].nunique().reset_index(name='sms_nunique')
-    # sms_nunique_n = sms_neg[sms_neg['phone_no_m'].isin(n_phone)].groupby('phone_no_m')['opposite_no_m'].nunique().reset_index(name='sms_nunique')
-    # print(sms_nunique_p[sms_nunique_p['sms_nunique'] > 100].shape[0], 489)  # 55
-    # print(sms_nunique_n[sms_nunique_n['sms_nunique'] > 100].shape[0], 569)  # 216
-    # 只用一个月流量或没用流量的与不同电话通话次数
-    voc_pos = pd.read_csv(analysis_path + 'voc_positive.csv')
-    voc_neg = pd.read_csv(analysis_path + 'voc_negative.csv')
-    voc_nunique_p = voc_pos[voc_pos['phone_no_m'].isin(p_phone)].groupby('phone_no_m')[
-        'opposite_no_m'].nunique().reset_index(name='voc_nunique')
-    voc_nunique_n = voc_neg[voc_neg['phone_no_m'].isin(n_phone)].groupby('phone_no_m')[
-        'opposite_no_m'].nunique().reset_index(name='voc_nunique')
-    p_phone_callcount = voc_nunique_p[voc_nunique_p['voc_nunique'] > 100]['phone_no_m'].to_list()
-    n_phone_callcount = voc_nunique_n[voc_nunique_n['voc_nunique'] < 100]['phone_no_m'].to_list()
-    print('N---拨出不同电话大于100的', voc_nunique_n[voc_nunique_n['voc_nunique'] > 100].shape[0],
-          voc_neg['phone_no_m'].nunique())  # 170
-    print('P---拨出不同电话大于100的', voc_nunique_p[voc_nunique_p['voc_nunique'] > 100].shape[0],
-          voc_pos['phone_no_m'].nunique())  # 33
-    # 没打过电话的
-    p_no_call = voc_nunique_p[voc_nunique_p['voc_nunique'] == 0]['phone_no_m'].to_list()
-    n_no_call = voc_nunique_n[voc_nunique_n['voc_nunique'] == 0]['phone_no_m'].to_list()
-    print('N---没打过电话', len(n_no_call))
-    print('P---没打过电话', len(p_no_call))
-    # 只用一个月流量或没用流量的电话 回拨电话数量
-    n_phone_id_list = [num2id[x] for x in n_phone]
-    p_phone_id_list = [num2id[x] for x in p_phone]
-    n_recall = recall(n_phone_id_list)
-    p_recall = recall(p_phone_id_list)
-    total = len(n_recall)+len(p_recall)
-    # 回拨率
-    n_ratio = [(n_recall[x][0]/n_recall[x][1])*(n_recall[x][1]/total) for x in n_recall.keys() if n_recall[x][1] != 0]
-    p_ratio = [(p_recall[x][0]/p_recall[x][1])*(p_recall[x][1]/total) for x in p_recall.keys() if p_recall[x][1] != 0]
-    n = len([x for x in n_ratio if x != 0])
-    p = len([x for x in p_ratio if x != 0])
-    print('N---回拨率不为0的', n, len(n_ratio))
-    print('P---回拨率不为0的', p, len(p_ratio))
+    # after_week_recall(n_voc, 'n')
+    # after_week_recall(train_voc, 'train')
+    # after_week_recall(test_voc, 'test')
+    # after_week_recall(p_voc, 'p')
 
-    # imei_phone_count_n = voc_neg.groupby('imei_m')['phone_no_m'].nunique().reset_index(name='imei_phone')
-    # imei_phone_count_p = voc_pos.groupby('imei_m')['phone_no_m'].nunique().reset_index(name='imei_phone')
-    # print(imei_phone_count_n[imei_phone_count_n['imei_phone'] > 1].shape[0], voc_neg['phone_no_m'].nunique())  # 617/1892
-    # print(imei_phone_count_p[imei_phone_count_p['imei_phone'] > 1].shape[0], voc_pos['phone_no_m'].nunique())   # 6/4133
+    # after_week_call(n_voc, 'n')
+    # after_week_call(train_voc, 'train')
+    # after_week_call(test_voc, 'test')
+    # after_week_call(p_voc, 'p')
 
-    phone_imei_count_n = voc_neg.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
-    phone_imei_count_p = voc_pos.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
-    print('N---手机换号次数大于20的', phone_imei_count_n[phone_imei_count_n['imei_phone'] > 10].shape[0], voc_neg['phone_no_m'].nunique())
-    print('P---手机换号次数大于20的', phone_imei_count_p[phone_imei_count_p['imei_phone'] > 10].shape[0], voc_pos['phone_no_m'].nunique())
+    threads = []
+    threads.append(threading.Thread(target=after_week_call(n_voc, 'n')))
+    threads.append(threading.Thread(target=after_week_call(train_voc, 'train')))
+    threads.append(threading.Thread(target=after_week_call(test_voc, 'test')))
+    threads.append(threading.Thread(target=after_week_call(p_voc, 'p')))
+    threads.append(threading.Thread(target=after_week_recall(n_voc, 'n')))
+    threads.append(threading.Thread(target=after_week_recall(train_voc, 'train')))
+    threads.append(threading.Thread(target=after_week_recall(test_voc, 'test')))
+    threads.append(threading.Thread(target=after_week_recall(p_voc, 'p')))
+
+    for t in threads:
+        t.start()
+
