@@ -666,13 +666,15 @@ if __name__ == '__main__':
 
     threads = []
     threads.append(threading.Thread(target=after_week_call(n_voc, 'n')))
-    threads.append(threading.Thread(target=after_week_call(train_voc, 'train')))
-    threads.append(threading.Thread(target=after_week_call(test_voc, 'test')))
     threads.append(threading.Thread(target=after_week_call(p_voc, 'p')))
     threads.append(threading.Thread(target=after_week_recall(n_voc, 'n')))
+    threads.append(threading.Thread(target=after_week_recall(p_voc, 'p')))
+
+    threads.append(threading.Thread(target=after_week_call(train_voc, 'train')))
+    threads.append(threading.Thread(target=after_week_call(test_voc, 'test')))
     threads.append(threading.Thread(target=after_week_recall(train_voc, 'train')))
     threads.append(threading.Thread(target=after_week_recall(test_voc, 'test')))
-    threads.append(threading.Thread(target=after_week_recall(p_voc, 'p')))
+
 
     for t in threads:
         t.start()
