@@ -1,6 +1,7 @@
-from ScamCall.analysis_best import load_data, recall, analysis_path, xff_path, train_split, cb_model
+from ScamCall.analysis_best import load_data, recall, analysis_path, xff_path, train_split, cb_model, train_split_k
 from ScamCall.analysis_best import after_week_recall
 import threading
+from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
@@ -9,7 +10,7 @@ import pandas as pd
 import pickle
 import prettytable as pt
 
-
+res_path = '/home/lxf/data/analysis_files/res/'
 def data(t):
     if t == 'test':
         df_app = load_data('test_app')
@@ -254,6 +255,47 @@ def lr_model():
     score(pre, y_test)
 
 
+def cb_m():
+    train = pd.read_csv(analysis_path + 'test_train.csv')
+    test = pd.read_csv(analysis_path + 'test_test.csv')
+    train.fillna(0, inplace=True)
+    test.fillna(0, inplace=True)
+    test.loc[test['arpu_202005'] == '\\N', 'arpu_202005'] = 0
+
+    # 处理列
+    test_id = test['phone_no_m'].tolist()
+    train.drop(['county_name', 'city_name'], axis=1, inplace=True)
+    test.drop(['phone_no_m'], axis=1, inplace=True)
+    train_col = train.columns.to_list()
+    train_col.remove('label')
+    train_col.remove('phone_no_m')
+    test.rename(columns={"arpu_202005": "arpu_"}, inplace=True)
+    test = test[train_col]
+
+    c_list = ['city_name', 'county_name', 'calltype_id']  #
+    x_train, x_test, y_train, y_test = train_split(train)
+
+    # 交叉验证
+    # kf = StratifiedKFold(n_splits=3, shuffle=True, random_state=2020)  # 3折交叉
+    # purchase_result = 0  # 最终结果
+    # data_k, label_k = train_split_k(train)
+    # for train_index, test_index in kf.split(data_k, label_k):
+    #     X_train_p, y_train_p = data_k.iloc[train_index], label_k.iloc[train_index]
+    #     X_valid_p, y_valid_p = data_k.iloc[test_index], label_k.iloc[test_index]
+    #     purchase_result += cb_model(X_train_p, X_valid_p, y_train_p, y_valid_p, test, c_list) / 3.0
+    # res_dict = {'phone_no_m': test_id, 'label': [value-0.1 for value in purchase_result]}  # round(value-0.3)
+    # res_df = pd.DataFrame(res_dict)
+    # res_df.to_csv(res_path + 'res_cb_3-01.csv', index=False)
+
+    # 开始训练
+    res = cb_model(x_train, x_test, y_train, y_test, test, c_list)
+    predictions = [round(value) for value in res]
+    res_dict = {'phone_no_m': test_id, 'label': predictions}
+    res_df = pd.DataFrame(res_dict)
+
+    res_df.to_csv(res_path + 'res_cb.csv', index=False)
+
+
 def score(pre, true):
     from sklearn.metrics import f1_score
     score = f1_score(true, pre, average='macro')
@@ -263,13 +305,8 @@ def score(pre, true):
 if __name__ == '__main__':
 
     # svm_model()
-    lr_model()
-
-    threads = []
-    # threads.append(threading.Thread(target=rule_analysis('n')))
-    # threads.append(threading.Thread(target=rule_analysis('p')))
-    for t in threads:
-        t.start()
+    # lr_model()
+    cb_m()
     '''
     >>> 诈骗
     +---------------------------------------+------+-------+
