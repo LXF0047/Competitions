@@ -74,7 +74,8 @@ def handel_dataset(time, c):
     data_set = pd.merge(data_set, sms_df, on='phone_no_m', how='outer')
     data_set = pd.merge(data_set, app_df, on='phone_no_m', how='outer')
 
-    data_set.to_csv('./resource/train_test_res/%s/%s.csv' % (time, c), index=False)
+    data_set.to_csv(analysis_path + '%s_%s.csv' % (time, c), index=False)
+    print('%s_%s.csv' % (time, c))
 
 
 def handel_user(df):
@@ -641,18 +642,19 @@ def after_week_call(voc, t):
     print([x for x in res.values() if x != 0])
     pickle.dump(res, open(xff_path + 'after_week_call_%s.pkl' % t, 'wb'))
 
+
 if __name__ == '__main__':
-    # handel_dataset('test', 'train')
-    # handel_dataset('test', 'test')
+    handel_dataset('test', 'train')
+    handel_dataset('test', 'test')
     # analysis()
 
-    id2num, num2id = pickle.load(open(xff_path + 'new_dict.pkl', 'rb'))
-    xff = pickle.load(open(xff_path + 'new_feature.pkl', 'rb'))
-
-    train_voc = load_data('train_voc')
-    test_voc = load_data('test_voc')
-    p_voc = pd.read_csv(analysis_path + 'voc_positive.csv')
-    n_voc = pd.read_csv(analysis_path + 'voc_negative.csv')
+    # id2num, num2id = pickle.load(open(xff_path + 'new_dict.pkl', 'rb'))
+    # xff = pickle.load(open(xff_path + 'new_feature.pkl', 'rb'))
+    #
+    # train_voc = load_data('train_voc')
+    # test_voc = load_data('test_voc')
+    # p_voc = pd.read_csv(analysis_path + 'voc_positive.csv')
+    # n_voc = pd.read_csv(analysis_path + 'voc_negative.csv')
 
     # after_week_recall(n_voc, 'n')
     # after_week_recall(train_voc, 'train')
@@ -664,18 +666,18 @@ if __name__ == '__main__':
     # after_week_call(test_voc, 'test')
     # after_week_call(p_voc, 'p')
 
-    threads = []
-    threads.append(threading.Thread(target=after_week_call(n_voc, 'n')))
-    threads.append(threading.Thread(target=after_week_call(p_voc, 'p')))
-    threads.append(threading.Thread(target=after_week_recall(n_voc, 'n')))
-    threads.append(threading.Thread(target=after_week_recall(p_voc, 'p')))
+    # threads = []
+    # threads.append(threading.Thread(target=after_week_call(n_voc, 'n')))
+    # threads.append(threading.Thread(target=after_week_call(p_voc, 'p')))
+    # threads.append(threading.Thread(target=after_week_recall(n_voc, 'n')))
+    # threads.append(threading.Thread(target=after_week_recall(p_voc, 'p')))
+    #
+    # threads.append(threading.Thread(target=after_week_call(train_voc, 'train')))
+    # threads.append(threading.Thread(target=after_week_call(test_voc, 'test')))
+    # threads.append(threading.Thread(target=after_week_recall(train_voc, 'train')))
+    # threads.append(threading.Thread(target=after_week_recall(test_voc, 'test')))
 
-    threads.append(threading.Thread(target=after_week_call(train_voc, 'train')))
-    threads.append(threading.Thread(target=after_week_call(test_voc, 'test')))
-    threads.append(threading.Thread(target=after_week_recall(train_voc, 'train')))
-    threads.append(threading.Thread(target=after_week_recall(test_voc, 'test')))
 
-
-    for t in threads:
-        t.start()
+    # for t in threads:
+    #     t.start()
 

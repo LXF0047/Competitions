@@ -1,6 +1,10 @@
-from ScamCall.analysis_best import load_data, recall, analysis_path, xff_path
+from ScamCall.analysis_best import load_data, recall, analysis_path, xff_path, train_split, cb_model
 from ScamCall.analysis_best import after_week_recall
 import threading
+from sklearn.model_selection import GridSearchCV
+from sklearn.svm import SVC
+from sklearn.linear_model import LogisticRegression
+import time
 import pandas as pd
 import pickle
 import prettytable as pt
@@ -125,7 +129,82 @@ def rule_analysis(t):
     print(tb)
 
 
+def bool_feature(t):
+    print('数据处理中', end='')
+    for i in range(3):
+        print('.', end='')
+        time.sleep(0.2)
 
+    # 加载数据
+    df_app, df_voc, same_call_count, same_call_max = data(t)
+
+    # merge list
+    merge_list = []
+
+    # label
+    if t == 'train':
+        label = load_data('train_user')[['phone_no_m', 'label']]
+        merge_list.append(label)
+
+    # 流量使用月数为0或1
+    month_p = df_app.groupby('phone_no_m')['month_id'].nunique().reset_index(name='month_count')
+    month_p.loc[month_p['month_count'] < 2, 'flow_01'] = 1
+    month_p.loc[month_p['month_count'] >= 2, 'flow_01'] = 0
+    merge_list.append(month_p[['phone_no_m', 'flow_01']])
+
+    # 只使用了一个月流量
+    flow_1 = month_p[month_p['month_count'] == 1]['phone_no_m'].to_list()
+    month_p.loc[month_p['month_count'] == 1, 'flow1'] = 1
+    month_p.loc[month_p['month_count'] != 1, 'flow1'] = 0
+    merge_list.append(month_p[['phone_no_m', 'flow1']])
+
+    # 没使用过流量
+    month_p.loc[month_p['month_count'] == 0, 'flow0'] = 1
+    month_p.loc[month_p['month_count'] != 0, 'flow0'] = 0
+    merge_list.append(month_p[['phone_no_m', 'flow0']])
+
+    # 拨出+接听不同电话大于200
+    call_take_100 = df_voc.groupby('phone_no_m')['opposite_no_m'].nunique().reset_index(name='voc_nunique')
+    call_take_100.loc[call_take_100['voc_nunique'] >= 200, 'call_take_100'] = 1
+    call_take_100.loc[call_take_100['voc_nunique'] < 200, 'call_take_100'] = 0
+    merge_list.append(call_take_100[['phone_no_m', 'call_take_100']])
+
+    # # 主叫100次以上的电话回拨率
+    # phone_id_list = [num2id[x] for x in df_voc['phone_no_m'].drop_duplicates().tolist()]
+    # recall_count = recall(phone_id_list)  # {'phone': (回拨数, 拨出数)}
+    # n_ratio = [recall_count[x][0] / recall_count[x][1] for x in recall_count.keys() if
+    #            recall_count[x][1] != 0 and recall_count[x][1] > 100]
+    # n_ra_0 = len([x for x in n_ratio if x == 0])
+    # # print('回拨率为0', n_ra_0, len(n_ratio))
+
+    # 手机换卡次数大于20
+    phone_imei_count = df_voc.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
+    phone_imei_count.loc[phone_imei_count['imei_phone'] >= 20, 'phone_imei_count_20'] = 1
+    phone_imei_count.loc[phone_imei_count['imei_phone'] < 20, 'phone_imei_count_20'] = 0
+    merge_list.append(phone_imei_count[['phone_no_m', 'phone_imei_count_20']])
+
+    # 有通话记录的月份数
+    df_voc['start_datetime'] = pd.to_datetime(df_voc['start_datetime'])
+    df_voc["month"] = df_voc['start_datetime'].dt.month
+    call_month = df_voc.groupby('phone_no_m')['month'].nunique().reset_index(name='call_month')
+    call_month.loc[call_month['call_month'] == 1, 'call_month_1'] = 1
+    call_month.loc[call_month['call_month'] != 1, 'call_month_1'] = 0
+    merge_list.append(call_month[['phone_no_m', 'call_month_1']])
+
+    # 通话月份数为1且流量月份数也为1
+    call_month_1_phone = call_month[call_month['call_month'] == 1]['phone_no_m'].tolist()
+    both_1 = list(set(call_month_1_phone).intersection(set(flow_1)))
+    call_month.loc[call_month['phone_no_m'].isin(both_1), 'call_flow_1'] = 1
+    call_month['call_flow_1'].fillna(0, inplace=True)
+
+    # merge
+    new_df = pd.merge(merge_list[0], merge_list[1], on='phone_no_m', how='outer')
+    for i in range(2, len(merge_list)):
+        new_df = pd.merge(new_df, merge_list[i], on='phone_no_m', how='outer')
+
+    print('\n数据处理完成')
+
+    return new_df
 
 
 def same_call(df, t):
@@ -141,7 +220,56 @@ def same_call(df, t):
     pickle.dump(same_call_max, open(xff_path + 'same_call_max_%s.pkl' % t, 'wb'))
 
 
+def svm_model():
+    # 0.75581
+    df = bool_feature('train')
+    df.fillna(0, inplace=True)
+    x_train, x_test, y_train, y_test = train_split(df)
+    svm_m = svm_cross_validation(x_train, y_train)
+    pre = svm_m.predict(x_test)
+    score(pre, y_test)
+
+
+def svm_cross_validation(train_x, train_y):
+    model = SVC(kernel='rbf', probability=True)
+    param_grid = {'C': [1e-3, 1e-2, 1e-1, 1, 10, 100, 1000], 'gamma': [0.1, 0.01, 0.001, 0.0001]}
+    grid_search = GridSearchCV(model, param_grid, n_jobs=-1, verbose=1)
+    grid_search.fit(train_x, train_y)
+    best_parameters = grid_search.best_estimator_.get_params()
+    for para, val in list(best_parameters.items()):
+        print(para, val)
+    model = SVC(kernel='rbf', C=best_parameters['C'], gamma=best_parameters['gamma'], probability=True)
+    model.fit(train_x, train_y)
+    return model
+
+
+def lr_model():
+    # 0.7515
+    df = bool_feature('train')
+    df.fillna(0, inplace=True)
+    x_train, x_test, y_train, y_test = train_split(df)
+    lr = LogisticRegression()
+    clf = lr.fit(x_train, y_train)
+    pre = clf.predict(x_test)
+    score(pre, y_test)
+
+
+def score(pre, true):
+    from sklearn.metrics import f1_score
+    score = f1_score(true, pre, average='macro')
+    print('F1: %s' % score)
+
+
 if __name__ == '__main__':
+
+    # svm_model()
+    lr_model()
+
+    threads = []
+    # threads.append(threading.Thread(target=rule_analysis('n')))
+    # threads.append(threading.Thread(target=rule_analysis('p')))
+    for t in threads:
+        t.start()
     '''
     >>> 诈骗
     +---------------------------------------+------+-------+
@@ -180,11 +308,6 @@ if __name__ == '__main__':
     +---------------------------------------+-----+-------+
     '''
 
-    threads = []
-    threads.append(threading.Thread(target=rule_analysis('n')))
-    threads.append(threading.Thread(target=rule_analysis('p')))
-    for t in threads:
-        t.start()
 
     # rule_analysis('n')
     # print('*' * 100)
