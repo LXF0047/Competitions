@@ -301,12 +301,33 @@ def score(pre, true):
     score = f1_score(true, pre, average='macro')
     print('F1: %s' % score)
 
+def lsw():
+    from catboost import CatBoostClassifier
+    train = pd.read_csv(analysis_path + 'train_result.csv')
+    test = pd.read_csv(analysis_path + 'test_result.csv')
+    test_id = test['phone_no_m']
+    # train.loc[test['arpu'] == '\\N', 'arpu'] = 0
+    test.loc[test['arpu'] == '\\N', 'arpu'] = 0
+    test.drop(['phone_no_m'], axis=1, inplace=True)
+
+    x_train, x_test, y_train, y_test = train_split(train)
+
+    model = CatBoostClassifier(iterations=2000, learning_rate=0.05, loss_function='Logloss',
+                               logging_level='Verbose', eval_metric='F1')
+    model.fit(x_train, y_train, eval_set=(x_test, y_test), early_stopping_rounds=200, silent=True)
+    # res = model.predict_proba(test)[:, 1]
+    predictions = model.predict(test)
+    res_dict = {'phone_no_m': test_id, 'label': predictions}
+    res_df = pd.DataFrame(res_dict)
+
+    res_df.to_csv(analysis_path + 'lsw_cb.csv', index=False)
 
 if __name__ == '__main__':
 
     # svm_model()
     # lr_model()
-    cb_m()
+    # cb_m()
+    lsw()
     '''
     >>> 诈骗
     +---------------------------------------+------+-------+
