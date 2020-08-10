@@ -221,14 +221,15 @@ def same_call(df, t):
     pickle.dump(same_call_max, open(xff_path + 'same_call_max_%s.pkl' % t, 'wb'))
 
 
-def svm_model():
+def svm_model(t):
     # 0.75581
-    df = bool_feature('train')
+    df = bool_feature(t)
     df.fillna(0, inplace=True)
     x_train, x_test, y_train, y_test = train_split(df)
     svm_m = svm_cross_validation(x_train, y_train)
     pre = svm_m.predict(x_test)
     score(pre, y_test)
+    return pre
 
 
 def svm_cross_validation(train_x, train_y):
@@ -244,15 +245,16 @@ def svm_cross_validation(train_x, train_y):
     return model
 
 
-def lr_model():
+def lr_model(t):
     # 0.7515
-    df = bool_feature('train')
+    df = bool_feature(t)
     df.fillna(0, inplace=True)
     x_train, x_test, y_train, y_test = train_split(df)
     lr = LogisticRegression()
     clf = lr.fit(x_train, y_train)
     pre = clf.predict(x_test)
     score(pre, y_test)
+    return pre
 
 
 def cb_m():
@@ -272,7 +274,7 @@ def cb_m():
     test.rename(columns={"arpu_202005": "arpu_"}, inplace=True)
     test = test[train_col]
 
-    c_list = ['city_name', 'county_name', 'calltype_id']  #
+    c_list = []  # 'city_name', 'county_name', 'calltype_id'
     x_train, x_test, y_train, y_test = train_split(train)
 
     # 交叉验证
@@ -289,9 +291,11 @@ def cb_m():
 
     # 开始训练
     res = cb_model(x_train, x_test, y_train, y_test, test, c_list)
-    predictions = [round(value) for value in res]
+    predictions = [round(value - 0.2) for value in res]
     res_dict = {'phone_no_m': test_id, 'label': predictions}
     res_df = pd.DataFrame(res_dict)
+
+    print(res_df['label'].sum())
 
     res_df.to_csv(res_path + 'res_cb.csv', index=False)
 
@@ -300,6 +304,7 @@ def score(pre, true):
     from sklearn.metrics import f1_score
     score = f1_score(true, pre, average='macro')
     print('F1: %s' % score)
+
 
 def lsw():
     from catboost import CatBoostClassifier
@@ -310,24 +315,49 @@ def lsw():
     test.loc[test['arpu'] == '\\N', 'arpu'] = 0
     test.drop(['phone_no_m'], axis=1, inplace=True)
 
+    # merge svm lr results
+    train = stack('train', train)
+    test = stack('test', test)
+
     x_train, x_test, y_train, y_test = train_split(train)
 
     model = CatBoostClassifier(iterations=2000, learning_rate=0.05, loss_function='Logloss',
                                logging_level='Verbose', eval_metric='F1')
     model.fit(x_train, y_train, eval_set=(x_test, y_test), early_stopping_rounds=200, silent=True)
-    # res = model.predict_proba(test)[:, 1]
-    predictions = model.predict(test)
-    res_dict = {'phone_no_m': test_id, 'label': predictions}
+    res = model.predict_proba(test)[:, 1]
+    # predictions = model.predict(test)
+    res_dict = {'phone_no_m': test_id, 'label': [round(value-0.2) for value in res]}
     res_df = pd.DataFrame(res_dict)
+    print(res_df['label'].sum())
 
-    res_df.to_csv(analysis_path + 'lsw_cb.csv', index=False)
+    # res_df.to_csv(analysis_path + 'lsw_cb.csv', index=False)
+    return res_df
+
+
+def stack(t, df):
+    test = pd.read_csv(analysis_path + 'test_result.csv')
+    test_id = test['phone_no_m']
+    if t == 'train':
+        lr = lr_model('train')
+        svm = svm_model('train')
+    else:
+        lr = lr_model('test')
+        svm = svm_model('test')
+
+    df_lr = pd.DataFrame({'phone_no_m': test_id, 'lr_res': lr})
+    df_svm = pd.DataFrame({'phone_no_m': test_id, 'lr_res': svm})
+
+    tmp = pd.merge(df, df_lr, on='phone_no_m', how='outer')
+    res_df = pd.merge(tmp, df_svm, on='phone_no_m', how='outer')
+
+    return res_df
+
 
 if __name__ == '__main__':
-
-    # svm_model()
-    # lr_model()
+    svm_model('test')
+    lr_model('test')
     # cb_m()
-    lsw()
+    # lsw()  # 567
     '''
     >>> 诈骗
     +---------------------------------------+------+-------+

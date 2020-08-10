@@ -129,8 +129,8 @@ def handel_voc(df):
     # 拆分时间列为日期和时间
     df['date'] = df['start_datetime'].map(lambda x: x.split(' ')[0])
     df['time'] = df['start_datetime'].map(lambda x: x.split(' ')[1])
-    df['date'] = df['start_datetime'].map(lambda x: x.split(' ')[0])
-    df['time'] = df['start_datetime'].map(lambda x: x.split(' ')[1])
+    # df['date'] = df['start_datetime'].map(lambda x: x.split(' ')[0])
+    # df['time'] = df['start_datetime'].map(lambda x: x.split(' ')[1])
 
     # 号码一共有多少通话记录  线下降
     call_sum = df.groupby('phone_no_m')['opposite_no_m'].count().reset_index(name='call_sum')
@@ -147,7 +147,7 @@ def handel_voc(df):
     call_diff_02 = df[df['calltype_id'] == 2].groupby('phone_no_m')['opposite_no_m'].nunique().reset_index(name='call_diff_02')
 
 
-    # 一个手机号的通话天数  奇怪的增长
+    # 一个手机号的通话记录数
     start_datetime_count = df.groupby('phone_no_m')['start_datetime'].count().reset_index(name='start_datetime_count')
     # 一个手机号的平均通话时长
     call_dur_mean = df.groupby('phone_no_m')['call_dur'].mean().reset_index(name='call_dur_mean')
@@ -263,7 +263,7 @@ def eda(df, filename='eda'):
 
 def train_split(df):
     train_label = df['label']
-    train_data = df.drop(['phone_no_m','label'], axis=1)
+    train_data = df.drop(['phone_no_m', 'label'], axis=1)
 
     x_train, x_test, y_train, y_test = train_test_split(train_data, train_label, test_size=0.3, random_state=2020)
     return x_train, x_test, y_train, y_test
