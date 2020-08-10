@@ -229,7 +229,7 @@ def svm_model(t):
     svm_m = svm_cross_validation(x_train, y_train)
     pre = svm_m.predict(x_test)
     score(pre, y_test)
-    return pre
+    return svm_m
 
 
 def svm_cross_validation(train_x, train_y):
@@ -238,8 +238,8 @@ def svm_cross_validation(train_x, train_y):
     grid_search = GridSearchCV(model, param_grid, n_jobs=-1, verbose=1)
     grid_search.fit(train_x, train_y)
     best_parameters = grid_search.best_estimator_.get_params()
-    for para, val in list(best_parameters.items()):
-        print(para, val)
+    # for para, val in list(best_parameters.items()):
+    #     print(para, val)
     model = SVC(kernel='rbf', C=best_parameters['C'], gamma=best_parameters['gamma'], probability=True)
     model.fit(train_x, train_y)
     return model
@@ -254,7 +254,7 @@ def lr_model(t):
     clf = lr.fit(x_train, y_train)
     pre = clf.predict(x_test)
     score(pre, y_test)
-    return pre
+    return clf
 
 
 def cb_m():
@@ -310,14 +310,15 @@ def lsw():
     from catboost import CatBoostClassifier
     train = pd.read_csv(analysis_path + 'train_result.csv')
     test = pd.read_csv(analysis_path + 'test_result.csv')
+
+    # merge svm lr results
+    train = stack('train')
+    test = stack('test')
+
     test_id = test['phone_no_m']
     # train.loc[test['arpu'] == '\\N', 'arpu'] = 0
     test.loc[test['arpu'] == '\\N', 'arpu'] = 0
     test.drop(['phone_no_m'], axis=1, inplace=True)
-
-    # merge svm lr results
-    train = stack('train', train)
-    test = stack('test', test)
 
     x_train, x_test, y_train, y_test = train_split(train)
 
@@ -326,7 +327,7 @@ def lsw():
     model.fit(x_train, y_train, eval_set=(x_test, y_test), early_stopping_rounds=200, silent=True)
     res = model.predict_proba(test)[:, 1]
     # predictions = model.predict(test)
-    res_dict = {'phone_no_m': test_id, 'label': [round(value-0.2) for value in res]}
+    res_dict = {'phone_no_m': test_id, 'label': [round(value) for value in res]}
     res_df = pd.DataFrame(res_dict)
     print(res_df['label'].sum())
 
@@ -334,18 +335,23 @@ def lsw():
     return res_df
 
 
-def stack(t, df):
-    test = pd.read_csv(analysis_path + 'test_result.csv')
-    test_id = test['phone_no_m']
+def stack(t):
+    lr = lr_model('train')  # 训练模型
+    svm = svm_model('train')
     if t == 'train':
-        lr = lr_model('train')
-        svm = svm_model('train')
+        train = pd.read_csv(analysis_path + 'train_result.csv')
+        _id = train['phone_no_m']
+        df = bool_feature('train')
     else:
-        lr = lr_model('test')
-        svm = svm_model('test')
+        test = pd.read_csv(analysis_path + 'test_result.csv')
+        _id = test['phone_no_m']
+        df = bool_feature('test')
 
-    df_lr = pd.DataFrame({'phone_no_m': test_id, 'lr_res': lr})
-    df_svm = pd.DataFrame({'phone_no_m': test_id, 'lr_res': svm})
+    lr_res = lr.predict(df)
+    svm_res = svm.predict(df)
+
+    df_lr = pd.DataFrame({'phone_no_m': _id, 'lr_res': lr_res})
+    df_svm = pd.DataFrame({'phone_no_m': _id, 'lr_res': svm_res})
 
     tmp = pd.merge(df, df_lr, on='phone_no_m', how='outer')
     res_df = pd.merge(tmp, df_svm, on='phone_no_m', how='outer')
@@ -354,10 +360,10 @@ def stack(t, df):
 
 
 if __name__ == '__main__':
-    svm_model('test')
-    lr_model('test')
+    # svm_model('test')
+    # lr_model('test')
     # cb_m()
-    # lsw()  # 567
+    lsw()  # 567
     '''
     >>> 诈骗
     +---------------------------------------+------+-------+
