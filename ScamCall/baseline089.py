@@ -7,7 +7,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import f1_score
 from scipy.stats import entropy, pearsonr, stats
-from competition.analysis_best import load_data
+from ScamCall.analysis_best import load_data
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 
 pd.set_option('display.unicode.ambiguous_as_wide', True)
@@ -243,38 +243,66 @@ def score_vail(vaild_preds, real):
 
 
 def feats():
+    mergelist_train = []
+    mergelist_test = []
+
     # test_voc = pd.read_csv(path + 'test/test_voc.csv', )
     test_voc = load_data('test_voc')
     test_voc_feat = get_voc_feat(test_voc)
-    test_voc_feat.to_csv("./resource/baseline_data/test_voc_feat.csv", index=False)
+    # test_voc_feat.to_csv("./resource/baseline_data/test_voc_feat.csv", index=False)
+    mergelist_test.append(test_voc_feat)
 
     # test_app = pd.read_csv(path + 'test/test_app.csv', )
     test_app = load_data('test_app')
     test_app_feat = get_app_feats(test_app)
-    test_app_feat.to_csv("./resource/baseline_data/test_app_feat.csv", index=False)
+    # test_app_feat.to_csv("./resource/baseline_data/test_app_feat.csv", index=False)
+    mergelist_test.append(test_app_feat)
 
     # test_sms = pd.read_csv(path + 'test/test_sms.csv', )
     test_sms = load_data('test_sms')
     test_sms_feat = get_sms_feats(test_sms)
-    test_sms_feat.to_csv("./resource/baseline_data/test_sms_feat.csv", index=False)
+    # test_sms_feat.to_csv("./resource/baseline_data/test_sms_feat.csv", index=False)
+    mergelist_test.append(test_sms_feat)
 
     # train_voc = pd.read_csv(path + 'train/train_voc.csv', )
     train_voc = load_data('train_voc')
     train_voc_feat = get_voc_feat(train_voc)
-    train_voc_feat.to_csv("./resource/baseline_data/train_voc_feat.csv", index=False)
+    # train_voc_feat.to_csv("./resource/baseline_data/train_voc_feat.csv", index=False)
+    mergelist_train.append(train_voc_feat)
 
     # train_app = pd.read_csv(path + 'train/train_app.csv', )
     train_app = load_data('train_app')
     train_app_feat = get_app_feats(train_app)
-    train_app_feat.to_csv("./resource/baseline_data/train_app_feat.csv", index=False)
+    # train_app_feat.to_csv("./resource/baseline_data/train_app_feat.csv", index=False)
+    mergelist_train.append(train_app_feat)
 
     # train_sms = pd.read_csv(path + 'train/train_sms.csv', )
     train_sms = load_data('train_sms')
     train_sms_feat = get_sms_feats(train_sms)
-    train_sms_feat.to_csv("./resource/baseline_data/train_sms_feat.csv", index=False)
+    # train_sms_feat.to_csv("./resource/baseline_data/train_sms_feat.csv", index=False)
+    mergelist_train.append(train_sms_feat)
+
+    # merge
+    new_df_train = pd.merge(mergelist_train[0], mergelist_train[1], on='phone_no_m', how='outer')
+    for i in range(2, len(mergelist_train)):
+        new_df_train = pd.merge(mergelist_train[0], mergelist_train[1], on='phone_no_m', how='outer')
+
+    new_df_test = pd.merge(mergelist_test[0], mergelist_test[1], on='phone_no_m', how='outer')
+    for i in range(2, len(mergelist_test)):
+        new_df_test = pd.merge(mergelist_test[0], mergelist_test[1], on='phone_no_m', how='outer')
+
+    from ScamCall.analysis_best import analysis_path
+    # new_df_train.to_csv(analysis_path + 'all_base089_feature_train.csv', index=False)
+    # new_df_test.to_csv(analysis_path + 'all_base089_feature_test.csv', index=False)
+
+    print(len(new_df_train.columns.tolist()), new_df_train.columns)
+
+    return new_df_train, new_df_test
+
+
 
 
 if __name__ == "__main__":
     feats()
-    print('数据处理读取完成')
-    train_model()
+    # print('数据处理读取完成')
+    # train_model()

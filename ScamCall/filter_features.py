@@ -11,6 +11,8 @@ import pickle
 import prettytable as pt
 
 res_path = '/home/lxf/data/analysis_files/res/'
+
+
 def data(t):
     if t == 'test':
         df_app = load_data('test_app')
@@ -202,8 +204,54 @@ def bool_feature(t):
     new_df = pd.merge(merge_list[0], merge_list[1], on='phone_no_m', how='outer')
     for i in range(2, len(merge_list)):
         new_df = pd.merge(new_df, merge_list[i], on='phone_no_m', how='outer')
+    # print(new_df.shape[0])
+    return new_df
 
-    print('\n数据处理完成')
+
+def num_feature(t):
+    # 加载数据
+    df_app, df_voc, same_call_count, same_call_max = data(t)
+
+    # merge list
+    merge_list = []
+
+    # label
+    if t == 'train':
+        label = load_data('train_user')[['phone_no_m', 'label']]
+        merge_list.append(label)
+
+    # 流量使用月数
+    month_p = df_app.groupby('phone_no_m')['month_id'].nunique().reset_index(name='month_count')
+    merge_list.append(month_p[['phone_no_m', 'month_count']])
+
+    # 拨出+接听不同电话
+    call_take_100 = df_voc.groupby('phone_no_m')['opposite_no_m'].nunique().reset_index(name='voc_nunique')
+    merge_list.append(call_take_100[['phone_no_m', 'voc_nunique']])
+
+    # 手机换卡次数
+    phone_imei_count = df_voc.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
+    merge_list.append(phone_imei_count[['phone_no_m', 'imei_phone']])
+
+    # 有通话记录的月份数
+    df_voc['start_datetime'] = pd.to_datetime(df_voc['start_datetime'])
+    df_voc["month"] = df_voc['start_datetime'].dt.month
+    call_month = df_voc.groupby('phone_no_m')['month'].nunique().reset_index(name='call_month')
+    call_month.loc[call_month['call_month'] == 1, 'call_month_1'] = 1
+    call_month.loc[call_month['call_month'] != 1, 'call_month_1'] = 0
+    merge_list.append(call_month[['phone_no_m', 'call_month_1']])
+
+    # 通话月份数为1且流量月份数也为1
+    flow_1 = month_p[month_p['month_count'] == 1]['phone_no_m'].to_list()
+    call_month_1_phone = call_month[call_month['call_month'] == 1]['phone_no_m'].tolist()
+    both_1 = list(set(call_month_1_phone).intersection(set(flow_1)))
+    call_month.loc[call_month['phone_no_m'].isin(both_1), 'call_flow_1'] = 1
+    call_month['call_flow_1'].fillna(0, inplace=True)
+    merge_list.append(call_month[['phone_no_m', 'call_flow_1']])
+
+    # merge
+    new_df = pd.merge(merge_list[0], merge_list[1], on='phone_no_m', how='outer')
+    for i in range(2, len(merge_list)):
+        new_df = pd.merge(new_df, merge_list[i], on='phone_no_m', how='outer')
 
     return new_df
 
@@ -312,11 +360,10 @@ def lsw():
     test = pd.read_csv(analysis_path + 'test_result.csv')
 
     # merge svm lr results
-    train = stack('train')
-    test = stack('test')
+    train = stack('train', train)
+    test = stack('test', test)
 
     test_id = test['phone_no_m']
-    # train.loc[test['arpu'] == '\\N', 'arpu'] = 0
     test.loc[test['arpu'] == '\\N', 'arpu'] = 0
     test.drop(['phone_no_m'], axis=1, inplace=True)
 
@@ -327,36 +374,53 @@ def lsw():
     model.fit(x_train, y_train, eval_set=(x_test, y_test), early_stopping_rounds=200, silent=True)
     res = model.predict_proba(test)[:, 1]
     # predictions = model.predict(test)
-    res_dict = {'phone_no_m': test_id, 'label': [round(value) for value in res]}
+    res_dict = {'phone_no_m': test_id, 'label': [round(value-0.2) for value in res]}
     res_df = pd.DataFrame(res_dict)
     print(res_df['label'].sum())
 
-    # res_df.to_csv(analysis_path + 'lsw_cb.csv', index=False)
+    res_df.to_csv(analysis_path + 'lsw_cb.csv', index=False)
     return res_df
 
 
-def stack(t):
+def stack(t, init_df):
     lr = lr_model('train')  # 训练模型
     svm = svm_model('train')
     if t == 'train':
         train = pd.read_csv(analysis_path + 'train_result.csv')
-        _id = train['phone_no_m']
         df = bool_feature('train')
+        _id = df['phone_no_m']
+        missing_list = list(set(_id.tolist()).difference(set(df['phone_no_m'].tolist())))
+        df.drop(['phone_no_m', 'label'], axis=1, inplace=True)
     else:
         test = pd.read_csv(analysis_path + 'test_result.csv')
-        _id = test['phone_no_m']
         df = bool_feature('test')
+        _id = df['phone_no_m']
+        missing_list = list(set(_id.tolist()).difference(set(df['phone_no_m'].tolist())))
+        df.drop(['phone_no_m'], axis=1, inplace=True)
+
+    df.fillna(0, inplace=True)
 
     lr_res = lr.predict(df)
     svm_res = svm.predict(df)
 
-    df_lr = pd.DataFrame({'phone_no_m': _id, 'lr_res': lr_res})
-    df_svm = pd.DataFrame({'phone_no_m': _id, 'lr_res': svm_res})
+    dict_lr = {'phone_no_m': _id, 'lr_res': lr_res}
+    dict_svm = {'phone_no_m': _id, 'lr_res': svm_res}
 
-    tmp = pd.merge(df, df_lr, on='phone_no_m', how='outer')
+    # 补充缺失电话label，认为都是诈骗
+    for phone in missing_list:
+        if phone not in dict_lr:
+            dict_lr[phone] = 1
+        if phone not in dict_svm:
+            dict_svm[phone] = 1
+
+    df_lr = pd.DataFrame(dict_lr)
+    df_svm = pd.DataFrame(dict_svm)
+
+    tmp = pd.merge(init_df, df_lr, on='phone_no_m', how='outer')
     res_df = pd.merge(tmp, df_svm, on='phone_no_m', how='outer')
 
     return res_df
+    # return None
 
 
 if __name__ == '__main__':
@@ -364,6 +428,7 @@ if __name__ == '__main__':
     # lr_model('test')
     # cb_m()
     lsw()  # 567
+    # bool_feature('test')
     '''
     >>> 诈骗
     +---------------------------------------+------+-------+
