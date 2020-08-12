@@ -1,4 +1,4 @@
-from ScamCall.filter_features import bool_feature, num_feature, stack, train_split, analysis_path, svm_cross_validation, score
+from ScamCall.filter_features import bool_feature, num_feature, stack, train_split, analysis_path, svm_cross_validation, score, load_data
 from ScamCall.baseline089 import feats
 from ScamCall.analysis_all_feature import main
 from ScamCall.analysis_best import eda
@@ -135,15 +135,64 @@ def elimination(train_df):
     print(gbdt_col)
 
 
-def predict(train_df, test_df):
-    import numpy as np
-    train_df.drop(svm_dis, axis=1, inplace=True)
-    test_df.drop(svm_dis, axis=1, inplace=True)
+def predict(train_df, test_df, test_id):
+    train_df.drop(cb_dis, axis=1, inplace=True)
+    test_df.drop(cb_dis, axis=1, inplace=True)
     x_train, x_test, y_train, y_test = train_split(train_df)
-    svm_ = svm_model(x_train, x_test, y_train, y_test)
-    res = svm_.predict(x_test)
-    print(len([x for x in res if x == 1]), np.sum(y_test))
 
+    # model = cb_model(x_train, x_test, y_train, y_test)
+    # res = model.predict_proba(test)[:, 1]
+    # pre = [round(x-0.25) for x in res]
+    # print(len([x for x in pre if x == 1]))
+
+    # model = svm_model(x_train, x_test, y_train, y_test)
+    # # res = model.predict_proba(test)[:, 1]
+    # # pre = [round(x) for x in res]
+    # pre = model.predict(test)
+    # print(len([x for x in pre if x == 1]))
+
+    model = gbdt_model(x_train, x_test, y_train, y_test)
+    res = model.predict_proba(test)[:, 1]
+    pre = [round(x-0.3) for x in res]
+    print(len([x for x in pre if x == 1]))
+
+    res_dict = {'phone_no_m': test_id, 'label': pre}
+    res_df = pd.DataFrame(res_dict)
+    res_df.to_csv(analysis_path + 'res_all_gbdt.csv', index=False)
+
+
+def manuel():
+    test_user = load_data('test_voc')
+    cb_res = pd.read_csv(analysis_path + 'res_all_cb.csv')
+    cb_gbdt = pd.read_csv(analysis_path + 'res_all_gbdt.csv')
+    cb_best = pd.read_csv(analysis_path + 'lsw_cb.csv')
+
+    sum_df = pd.merge(cb_res, cb_gbdt, on='phone_no_m', how='outer')
+    sum_df = pd.merge(sum_df, cb_best, on='phone_no_m', how='outer')
+    sum_df.rename(columns={"label_x": "a", "label_y": "b", "label": "c"}, inplace=True)
+
+    sum_df['label'] = sum_df['a'] + sum_df['b'] + sum_df['c']
+    sum_df['label'] = sum_df['label'].apply(lambda x: 1 if x == 3 else 0)
+
+    # 换卡次数大于20的全预测正确
+    phone_imei_count = test_user.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
+    imei_20 = phone_imei_count[phone_imei_count['imei_phone'] >= 20]['phone_no_m'].tolist()
+    # for i in imei_20:
+    #     print(sum_df[sum_df['phone_no_m'] == i]['label'])
+
+    # 缺失值93个
+    train_phone = load_data('test_voc')['phone_no_m'].drop_duplicates().tolist()
+    test_phone = load_data('test_user')['phone_no_m'].tolist()
+    miss_phone = list(set(test_phone).difference(set(train_phone)))
+    print(sum_df[sum_df['phone_no_m'].isin(miss_phone)]['label'].sum())
+
+    # 缺失值全认为是诈骗
+    sum_df.loc[sum_df['phone_no_m'].isin(miss_phone), 'label'] = 1
+
+    sum_df[['phone_no_m', 'label']].to_csv(analysis_path + '419.csv', index=False)
+    print(sum_df['label'].sum())
+    # 1交集363 0：954， 不确定133
+    # 缺失数据都认为是诈骗419
 
 
 if __name__ == '__main__':
@@ -171,6 +220,7 @@ if __name__ == '__main__':
     train = pd.read_csv(analysis_path + 'all_features_train.csv')
     test = pd.read_csv(analysis_path + 'all_features_test.csv')
 
+    test_id = test['phone_no_m'].tolist()
     test.rename(columns={"arpu_202005": "arpu_"}, inplace=True)
     train.drop(['city_name', 'county_name', 'label_y', 'label_x'], axis=1, inplace=True)
     test.drop(['city_name', 'county_name', 'phone_no_m'], axis=1, inplace=True)
@@ -179,5 +229,5 @@ if __name__ == '__main__':
     test.loc[test['arpu_'] == '\\N', 'arpu_'] = 0
 
     # elimination(train)
-    predict(train, test)
-
+    # predict(train, test, test_id)
+    manuel()
