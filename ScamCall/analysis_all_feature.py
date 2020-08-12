@@ -27,7 +27,6 @@ def handel_dataset(time, c):
     # data_set.to_csv(analysis_path + '%s_%s.csv' % (time, c), index=False)
     # print('%s_%s.csv写入完成' % (time, c))
 
-    print(len(data_set.columns.tolist()), data_set.columns)
     return data_set
 
 
@@ -59,7 +58,6 @@ def handel_sms(df):
     new_df = pd.merge(new_df, request_datetime_nunique, on='phone_no_m', how='outer')
 
     # new_df.to_csv('./resource/sms_%s_1.csv' % c, index=False)
-    print(opposite_no_m_nunique)
     return new_df
 
 
@@ -166,17 +164,16 @@ def handel_voc(df):
 
 
     # 一个手机用过的电话卡数量
-    imei_phones = df.groupby('imei_m')['phone_no_m'].nunique().reset_index(name='imei_phones_count')
-    tmp_dic = dict(zip(imei_phones['imei_m'].tolist(), imei_phones['imei_phones_count'].tolist()))
-    imei_phones_c = df.groupby('phone_no_m')['imei_m'].value_counts().reset_index(name='tmp')
-
+    # imei_phones = df.groupby('imei_m')['phone_no_m'].nunique().reset_index(name='imei_phones_count')
+    # tmp_dic = dict(zip(imei_phones['imei_m'].tolist(), imei_phones['imei_phones_count'].tolist()))
+    # imei_phones_c = df.groupby('phone_no_m')['imei_m'].value_counts().reset_index(name='tmp')
 
 
     m_list = [oppsite_no_m_voc_nunique, call_diff_01, call_diff_02, start_datetime_count, date_unique,
               call_dur_mean, city_name_nunique, county_name_nunique, imei_m_nunique]
     m_list_other = [tmp_ratio, dure_sum, call_sum, call_sum_01, call_sum_02, date_unique_01, date_unique_02,
                     call_day_max, call_day_01_max, call_day_02_max, averge_call, averge_call_01, dure_std,
-                    dure_mean, phone_count_max, imei_county_mean, imei_phones_c, averge_call_02]
+                    dure_mean, phone_count_max, imei_county_mean, averge_call_02]
 
     total = m_list+m_list_other
     new_df = pd.merge(total[0], total[1], on='phone_no_m', how='outer')

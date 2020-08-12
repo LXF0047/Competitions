@@ -276,7 +276,8 @@ def svm_model(t):
     x_train, x_test, y_train, y_test = train_split(df)
     svm_m = svm_cross_validation(x_train, y_train)
     pre = svm_m.predict(x_test)
-    score(pre, y_test)
+    s = score(pre, y_test)
+    print('F1: %s' % s)
     return svm_m
 
 
@@ -301,7 +302,8 @@ def lr_model(t):
     lr = LogisticRegression()
     clf = lr.fit(x_train, y_train)
     pre = clf.predict(x_test)
-    score(pre, y_test)
+    s = score(pre, y_test)
+    print('F1: %s' % s)
     return clf
 
 
@@ -351,7 +353,8 @@ def cb_m():
 def score(pre, true):
     from sklearn.metrics import f1_score
     score = f1_score(true, pre, average='macro')
-    print('F1: %s' % score)
+    # print('F1: %s' % score)
+    return score
 
 
 def lsw():

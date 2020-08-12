@@ -295,8 +295,6 @@ def feats():
     # new_df_train.to_csv(analysis_path + 'all_base089_feature_train.csv', index=False)
     # new_df_test.to_csv(analysis_path + 'all_base089_feature_test.csv', index=False)
 
-    print(len(new_df_train.columns.tolist()), new_df_train.columns)
-
     return new_df_train, new_df_test
 
 

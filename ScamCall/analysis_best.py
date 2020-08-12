@@ -256,7 +256,7 @@ def get_imei_phone(df):
 
 
 def eda(df, filename='eda'):
-    output_path = './resource/%s.html' % filename
+    output_path = analysis_path + '%s.html' % filename
     profile = pandas_profiling.ProfileReport(df, minimal=False)
     profile.to_file(output_file=output_path)
 
