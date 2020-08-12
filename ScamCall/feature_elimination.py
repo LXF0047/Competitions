@@ -39,7 +39,8 @@ def svm_model(x_train, x_test, y_train, y_test):
     model.fit(x_train, y_train)
     pre = model.predict(x_test)
     s = score(pre, y_test)
-    return s
+    print(s)
+    return model
 
 
 def lr_model(x_train, x_test, y_train, y_test):
@@ -47,7 +48,7 @@ def lr_model(x_train, x_test, y_train, y_test):
     clf = lr.fit(x_train, y_train)
     pre = clf.predict(x_test)
     s = score(pre, y_test)
-    return s
+    return clf
 
 
 def gbdt_model(x_train, x_test, y_train, y_test):
@@ -55,7 +56,7 @@ def gbdt_model(x_train, x_test, y_train, y_test):
     gbm0.fit(x_train, y_train)
     pre = gbm0.predict(x_test)
     s = score(pre, y_test)
-    return s
+    return gbm0
 
 
 def xgb_model(x_train, x_test, y_train, y_test):
@@ -82,7 +83,8 @@ def cb_model(X_t, X_v, y_t, y_v):
     model = CatBoostClassifier(iterations=2000, learning_rate=0.05, loss_function='Logloss',
                                logging_level='Verbose', eval_metric='F1')
     model.fit(X_t, y_t, eval_set=(X_v, y_v), early_stopping_rounds=200, silent=True)
-    return model.best_score_['validation']['F1']
+
+    return model
 
 
 def _train(columns, dis_col, col, train_df, model):
@@ -133,11 +135,21 @@ def elimination(train_df):
     print(gbdt_col)
 
 
+def predict(train_df, test_df):
+    import numpy as np
+    train_df.drop(svm_dis, axis=1, inplace=True)
+    test_df.drop(svm_dis, axis=1, inplace=True)
+    x_train, x_test, y_train, y_test = train_split(train_df)
+    svm_ = svm_model(x_train, x_test, y_train, y_test)
+    res = svm_.predict(x_test)
+    print(len([x for x in res if x == 1]), np.sum(y_test))
+
+
 
 if __name__ == '__main__':
-    cb_col = ['arpu_', 'start_datetime_count', 'call_dur_mean_x', 'dure_sum', 'call_sum_01', 'calltype_id_sum',
+    cb_dis = ['arpu_', 'start_datetime_count', 'call_dur_mean_x', 'dure_sum', 'call_sum_01', 'calltype_id_sum',
      'request_datetime_nunique', 'call_month_1_x']
-    svm_col = ['idcard_cnt', 'arpu_', 'oppsite_no_m_voc_nunique', 'call_diff_01', 'call_diff_02', 'start_datetime_count',
+    svm_dis = ['idcard_cnt', 'arpu_', 'oppsite_no_m_voc_nunique', 'call_diff_01', 'call_diff_02', 'start_datetime_count',
      'date_unique', 'call_dur_mean_x', 'city_name_nunique_x', 'county_name_nunique_x', 'imei_m_nunique', 'ratio',
      'dure_sum', 'call_sum', 'call_sum_01', 'call_sum_02', 'date_unique_01', 'date_unique_02', 'call_day_max',
      'call_day_01_max', 'call_day_02_max', 'averge_call', 'averge_call_01', 'dure_std', 'dure_mean', 'phone_count_max',
@@ -150,10 +162,10 @@ if __name__ == '__main__':
      'voc_day_mode_count', 'voc_day_nunique', 'busi_count', 'flow_mean', 'flow_median', 'flow_min', 'flow_max',
      'flow_var', 'flow_sum_y', 'month_ids', 'flow_month', 'flow_01', 'flow1', 'flow0', 'call_take_100',
      'phone_imei_count_20', 'call_month_1_x', 'voc_nunique', 'call_month_1_y']
-    lr_col = ['oppsite_no_m_voc_nunique', 'county_name_nunique_x', 'date_unique_01', 'phone2oppo_sum_mean',
+    lr_dis = ['oppsite_no_m_voc_nunique', 'county_name_nunique_x', 'date_unique_01', 'phone2oppo_sum_mean',
      'phone2oppo_sum_median', 'phone2oppo_sum_max', 'call_dur_mean_y', 'call_dur_max', 'voc_hour_mode',
      'voc_hour_mode_count', 'voc_hour_nunique', 'flow1']
-    gbdt_col = ['oppsite_no_m_voc_nunique', 'call_diff_02', 'averge_call', 'flow_min']
+    gbdt_dis = ['oppsite_no_m_voc_nunique', 'call_diff_02', 'averge_call', 'flow_min']
 
 
     train = pd.read_csv(analysis_path + 'all_features_train.csv')
@@ -166,6 +178,6 @@ if __name__ == '__main__':
     test.fillna(0, inplace=True)
     test.loc[test['arpu_'] == '\\N', 'arpu_'] = 0
 
-    elimination(train)
-
+    # elimination(train)
+    predict(train, test)
 
