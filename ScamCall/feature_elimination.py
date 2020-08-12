@@ -5,6 +5,7 @@ from ScamCall.analysis_best import eda
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import GradientBoostingClassifier
 from catboost import CatBoostClassifier
+from sklearn.svm import SVC
 from sklearn.metrics import f1_score
 from tqdm import tqdm
 import pandas as pd
@@ -34,8 +35,9 @@ def generate_all_feature():
 
 
 def svm_model(x_train, x_test, y_train, y_test):
-    svm_m = svm_cross_validation(x_train, y_train)
-    pre = svm_m.predict(x_test)
+    model = SVC()
+    model.fit(x_train, y_train)
+    pre = model.predict(x_test)
     s = score(pre, y_test)
     return s
 
@@ -133,6 +135,27 @@ def elimination(train_df):
 
 
 if __name__ == '__main__':
+    cb_col = ['arpu_', 'start_datetime_count', 'call_dur_mean_x', 'dure_sum', 'call_sum_01', 'calltype_id_sum',
+     'request_datetime_nunique', 'call_month_1_x']
+    svm_col = ['idcard_cnt', 'arpu_', 'oppsite_no_m_voc_nunique', 'call_diff_01', 'call_diff_02', 'start_datetime_count',
+     'date_unique', 'call_dur_mean_x', 'city_name_nunique_x', 'county_name_nunique_x', 'imei_m_nunique', 'ratio',
+     'dure_sum', 'call_sum', 'call_sum_01', 'call_sum_02', 'date_unique_01', 'date_unique_02', 'call_day_max',
+     'call_day_01_max', 'call_day_02_max', 'averge_call', 'averge_call_01', 'dure_std', 'dure_mean', 'phone_count_max',
+     'imei_county_mean', 'averge_call_02', 'opposite_no_m_nunique', 'calltype_id_sum', 'request_datetime_nunique',
+     'busi_name_nunique', 'flow_sum_x', 'app_month', 'opposite_count', 'opposite_unique', 'voccalltype1', 'imeis',
+     'voc_calltype1', 'city_name_call', 'county_name_call', 'phone2opposite_mean', 'phone2opposite_median',
+     'phone2opposite_max', 'phone2oppo_sum_mean', 'phone2oppo_sum_median', 'phone2oppo_sum_max', 'call_dur_mean_y',
+     'call_dur_median', 'call_dur_max', 'call_dur_min', 'city_name_nunique_y', 'county_name_nunique_y',
+     'calltype_id_unique', 'voc_hour_mode', 'voc_hour_mode_count', 'voc_hour_nunique', 'voc_day_mode',
+     'voc_day_mode_count', 'voc_day_nunique', 'busi_count', 'flow_mean', 'flow_median', 'flow_min', 'flow_max',
+     'flow_var', 'flow_sum_y', 'month_ids', 'flow_month', 'flow_01', 'flow1', 'flow0', 'call_take_100',
+     'phone_imei_count_20', 'call_month_1_x', 'voc_nunique', 'call_month_1_y']
+    lr_col = ['oppsite_no_m_voc_nunique', 'county_name_nunique_x', 'date_unique_01', 'phone2oppo_sum_mean',
+     'phone2oppo_sum_median', 'phone2oppo_sum_max', 'call_dur_mean_y', 'call_dur_max', 'voc_hour_mode',
+     'voc_hour_mode_count', 'voc_hour_nunique', 'flow1']
+    gbdt_col = ['oppsite_no_m_voc_nunique', 'call_diff_02', 'averge_call', 'flow_min']
+
+
     train = pd.read_csv(analysis_path + 'all_features_train.csv')
     test = pd.read_csv(analysis_path + 'all_features_test.csv')
 
@@ -144,4 +167,5 @@ if __name__ == '__main__':
     test.loc[test['arpu_'] == '\\N', 'arpu_'] = 0
 
     elimination(train)
+
 
