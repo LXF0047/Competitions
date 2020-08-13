@@ -162,7 +162,6 @@ def predict(train_df, test_df, test_id):
 
 
 def manuel():
-    test_user = load_data('test_voc')
     cb_res = pd.read_csv(analysis_path + 'res_all_cb.csv')
     cb_gbdt = pd.read_csv(analysis_path + 'res_all_gbdt.csv')
     cb_best = pd.read_csv(analysis_path + 'lsw_cb.csv')
@@ -175,25 +174,29 @@ def manuel():
     sum_df['label'] = sum_df['label'].apply(lambda x: 1 if x == 3 else 0)
 
     # 换卡次数大于20的全预测正确
-    phone_imei_count = test_user.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
-    imei_20 = phone_imei_count[phone_imei_count['imei_phone'] >= 20]['phone_no_m'].tolist()
+    # phone_imei_count = test_user.groupby('phone_no_m')['imei_m'].nunique().reset_index(name='imei_phone')
+    # imei_20 = phone_imei_count[phone_imei_count['imei_phone'] >= 20]['phone_no_m'].tolist()
     # for i in imei_20:
     #     print(sum_df[sum_df['phone_no_m'] == i]['label'])
 
     # 缺失值93个
-    train_phone = load_data('test_voc')['phone_no_m'].drop_duplicates().tolist()
-    test_phone = load_data('test_user')['phone_no_m'].tolist()
-    miss_phone = list(set(test_phone).difference(set(train_phone)))
-    print(sum_df[sum_df['phone_no_m'].isin(miss_phone)]['label'].sum())
+    # train_phone = load_data('test_voc')['phone_no_m'].drop_duplicates().tolist()
+    # test_phone = load_data('test_user')['phone_no_m'].tolist()
+    # miss_phone = list(set(test_phone).difference(set(train_phone)))
+    # print(sum_df[sum_df['phone_no_m'].isin(miss_phone)]['label'].sum())
 
-    # 缺失值全认为是诈骗
-    sum_df.loc[sum_df['phone_no_m'].isin(miss_phone), 'label'] = 1
-
-    sum_df[['phone_no_m', 'label']].to_csv(analysis_path + '419.csv', index=False)
-    print(sum_df['label'].sum())
     # 1交集363 0：954， 不确定133
-    # 缺失数据都认为是诈骗419
+    # 缺失数据都认为是诈骗419，得分下降
 
+    # 分析133个不确定
+
+    test_voc_133 = pd.read_csv(analysis_path + 'test_voc_133.csv')
+    test_app_133 = pd.read_csv(analysis_path + 'test_app_133.csv')
+    test_sms_133 = pd.read_csv(analysis_path + 'test_sms_133.csv')
+    test_user_133 = pd.read_csv(analysis_path + 'test_user_133.csv')
+    sus = ['04a948a430d2908836d791d7ea647e1f8c8a0e6fe24407b819dda3e2c1475ed3d0ffb278a0bcc8f60f010c8b07fbde5db8610f84236c17d3f94dfc55fcb8b9e2',
+           '116614a2006a23921350191950db5e71bf9b17785b5fefb2542693a03c42cf0086f6198973d3bb9e0217c972f0df1b1260c3d1cf27ebd1e9d0468a50f2ae7acc',
+           '']
 
 if __name__ == '__main__':
     cb_dis = ['arpu_', 'start_datetime_count', 'call_dur_mean_x', 'dure_sum', 'call_sum_01', 'calltype_id_sum',

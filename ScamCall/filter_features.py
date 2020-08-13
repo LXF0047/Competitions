@@ -127,9 +127,9 @@ def rule_analysis(t):
     more = more_100[more_100['tmp'] > 200].shape[0]
     tb.add_row(["拨出不同号码数大于100", more, more_100.shape[0]])
 
-    # 一星期后任然有联系的电话数
-
-    print(tb)
+    # 拨出电话位置信息为空
+    call_unknown_place = df_voc[df_voc['call_type'] == 1].groupby('phone_no_m')['city_name'].isnull().count()
+    print(call_unknown_place)
 
 
 def bool_feature(t):
@@ -430,7 +430,7 @@ if __name__ == '__main__':
     # svm_model('test')
     # lr_model('test')
     # cb_m()
-    lsw()  # 567
+    # lsw()  # 567
     # bool_feature('test')
     '''
     >>> 诈骗
@@ -471,6 +471,6 @@ if __name__ == '__main__':
     '''
 
 
-    # rule_analysis('n')
+    rule_analysis('n')
     # print('*' * 100)
-    # rule_analysis('p')
+    rule_analysis('p')
