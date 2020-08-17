@@ -180,20 +180,30 @@ def manuel():
     #     print(sum_df[sum_df['phone_no_m'] == i]['label'])
 
     # 缺失值93个
-    # train_phone = load_data('test_voc')['phone_no_m'].drop_duplicates().tolist()
-    # test_phone = load_data('test_user')['phone_no_m'].tolist()
-    # miss_phone = list(set(test_phone).difference(set(train_phone)))
+    train_phone = load_data('test_voc')['phone_no_m'].drop_duplicates().tolist()
+    test_phone = load_data('test_user')['phone_no_m'].tolist()
+    miss_phone = list(set(test_phone).difference(set(train_phone)))
+    _v = load_data('test_voc')
+    _u = load_data('test_user')
+    _s = load_data('test_sms')
+    _a = load_data('test_app')
+
+    miss_phone_voc = _v[_v['phone_no_m'].isin(miss_phone)]
+    miss_phone_user = _u[_u['phone_no_m'].isin(miss_phone)]
+    miss_phone_sms = _s[_s['phone_no_m'].isin(miss_phone)]
+    miss_phone_app = _a[_a['phone_no_m'].isin(miss_phone)]
+
+    miss_phone_voc.to_csv(analysis_path + 'miss_voc.csv', index=False, encoding='utf-8')
+    miss_phone_user.to_csv(analysis_path + 'miss_user.csv', index=False, encoding='utf-8')
+    miss_phone_sms.to_csv(analysis_path + 'miss_sms.csv', index=False)
+    miss_phone_app.to_csv(analysis_path + 'miss_app.csv', index=False, encoding='utf-8')
+
     # print(sum_df[sum_df['phone_no_m'].isin(miss_phone)]['label'].sum())
 
     # 1交集363 0：954， 不确定133
     # 缺失数据都认为是诈骗419，得分下降
 
     # 分析133个不确定
-
-    test_voc_133 = pd.read_csv(analysis_path + 'test_voc_133.csv')
-    test_app_133 = pd.read_csv(analysis_path + 'test_app_133.csv')
-    test_sms_133 = pd.read_csv(analysis_path + 'test_sms_133.csv')
-    test_user_133 = pd.read_csv(analysis_path + 'test_user_133.csv')
     sus = ['04a948a430d2908836d791d7ea647e1f8c8a0e6fe24407b819dda3e2c1475ed3d0ffb278a0bcc8f60f010c8b07fbde5db8610f84236c17d3f94dfc55fcb8b9e2',
            '116614a2006a23921350191950db5e71bf9b17785b5fefb2542693a03c42cf0086f6198973d3bb9e0217c972f0df1b1260c3d1cf27ebd1e9d0468a50f2ae7acc',
            '']
@@ -201,19 +211,6 @@ def manuel():
 if __name__ == '__main__':
     cb_dis = ['arpu_', 'start_datetime_count', 'call_dur_mean_x', 'dure_sum', 'call_sum_01', 'calltype_id_sum',
      'request_datetime_nunique', 'call_month_1_x']
-    svm_dis = ['idcard_cnt', 'arpu_', 'oppsite_no_m_voc_nunique', 'call_diff_01', 'call_diff_02', 'start_datetime_count',
-     'date_unique', 'call_dur_mean_x', 'city_name_nunique_x', 'county_name_nunique_x', 'imei_m_nunique', 'ratio',
-     'dure_sum', 'call_sum', 'call_sum_01', 'call_sum_02', 'date_unique_01', 'date_unique_02', 'call_day_max',
-     'call_day_01_max', 'call_day_02_max', 'averge_call', 'averge_call_01', 'dure_std', 'dure_mean', 'phone_count_max',
-     'imei_county_mean', 'averge_call_02', 'opposite_no_m_nunique', 'calltype_id_sum', 'request_datetime_nunique',
-     'busi_name_nunique', 'flow_sum_x', 'app_month', 'opposite_count', 'opposite_unique', 'voccalltype1', 'imeis',
-     'voc_calltype1', 'city_name_call', 'county_name_call', 'phone2opposite_mean', 'phone2opposite_median',
-     'phone2opposite_max', 'phone2oppo_sum_mean', 'phone2oppo_sum_median', 'phone2oppo_sum_max', 'call_dur_mean_y',
-     'call_dur_median', 'call_dur_max', 'call_dur_min', 'city_name_nunique_y', 'county_name_nunique_y',
-     'calltype_id_unique', 'voc_hour_mode', 'voc_hour_mode_count', 'voc_hour_nunique', 'voc_day_mode',
-     'voc_day_mode_count', 'voc_day_nunique', 'busi_count', 'flow_mean', 'flow_median', 'flow_min', 'flow_max',
-     'flow_var', 'flow_sum_y', 'month_ids', 'flow_month', 'flow_01', 'flow1', 'flow0', 'call_take_100',
-     'phone_imei_count_20', 'call_month_1_x', 'voc_nunique', 'call_month_1_y']
     lr_dis = ['oppsite_no_m_voc_nunique', 'county_name_nunique_x', 'date_unique_01', 'phone2oppo_sum_mean',
      'phone2oppo_sum_median', 'phone2oppo_sum_max', 'call_dur_mean_y', 'call_dur_max', 'voc_hour_mode',
      'voc_hour_mode_count', 'voc_hour_nunique', 'flow1']
@@ -233,4 +230,21 @@ if __name__ == '__main__':
 
     # elimination(train)
     # predict(train, test, test_id)
-    manuel()
+    # manuel()
+
+    _363 = pd.read_csv(analysis_path + '363.csv')
+    train_phone = load_data('test_voc')['phone_no_m'].drop_duplicates().tolist()
+    test_phone = load_data('test_user')['phone_no_m'].tolist()
+    miss_phone = list(set(test_phone).difference(set(train_phone)))
+    _363.loc[_363['phone_no_m'].isin(miss_phone), 'label'] = 0
+    tmp = ['d8fbe257ba16c2e11f562ac1343303a517080a01e990a35279e74b4e6d62631da33c5154f5139024b8d2dc8e8b5b0e30f1efdf5023b5b930b065fa5f1bc887cb',
+           'a8d106452d28a3996a360eeae46b362067c90730fb314dacb1d73380941fa6962c1202e6eea0cc43b2d396552d7f712e9a07f7185457d834317222673af47058',
+           '11fc0a8bbc7c9a5ce4519d92805beded3a842db9bc086dc4b92aae5beada07b327287c207cc2f0dfc4bd5fb727d98fb507a5083b3279201bd19442b6f68070a0',
+           'b6e3f33f2889e50f6eee1719338038b129917cd37938b94a44ac4b72a702fb02951c4797eb4db19de01d7843746570d5b03d7892f193164923ada1e761d6b348',
+           '8bce61a09c3d0cd0d9492e2b98272d944263b5ce7cb0c9f857a293fd19d075920847cf63a81e96b72c69bf896a973fe28a7a919032d24c48a9c4a32ed97c2db1',
+           'b6f5149c107d9e0a473bb42f75873e1f458b7fb3340608f96eeb2e06a87214ab1f090906ef0d7a858fedceb1e844a7613fb8dff4b2e896299046b918c50ac7d8',
+           '4f1c4ea7f091f431e65057ef9b299d4506bfb918c79853525fdc6f9f50f2cf91bf8cd6205c7870de6092c216ce51bce1c8a1fc91f30a5db9274f701fce1deafc']
+    _363.loc[_363['phone_no_m'].isin(tmp), 'label'] = 1
+    # _363.to_csv(analysis_path + 'handel_363.csv', index=False)
+
+    # 预测为正常的号码里可能预测错的
